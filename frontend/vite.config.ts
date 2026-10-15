@@ -10,10 +10,11 @@ export default defineConfig({
     },
   },
   server: {
-    host: "0.0.0.0", // needed inside Docker
+    host: "0.0.0.0", // required inside Docker
     port: 5173,
     proxy: {
-      // Proxy API calls to backend during development
+      // In Docker: VITE_API_URL = http://backend:4000 (container-to-container)
+      // Locally:   VITE_API_URL = http://localhost:4000
       "/api": {
         target: process.env.VITE_API_URL ?? "http://localhost:4000",
         changeOrigin: true,
