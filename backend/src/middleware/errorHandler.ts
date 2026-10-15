@@ -15,6 +15,12 @@ export function errorHandler(
   // next is required by Express for error handler signature
   _next: NextFunction
 ): void {
+  // Malformed JSON body (SyntaxError from express.json()) -> 400
+  if (err instanceof SyntaxError && "body" in err) {
+    res.status(400).json({ message: "Invalid JSON in request body" });
+    return;
+  }
+
   // Zod validation errors → 400
   if (err instanceof ZodError) {
     res.status(400).json({
@@ -79,3 +85,4 @@ export function createHttpError(statusCode: number, message: string): Error {
   err.statusCode = statusCode;
   return err;
 }
+

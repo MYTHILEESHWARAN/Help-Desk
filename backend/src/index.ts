@@ -12,6 +12,8 @@ import { ticketsRouter } from "./routes/tickets";
 import { usersRouter } from "./routes/users";
 import { dashboardRouter } from "./routes/dashboard";
 import { eventsRouter } from "./routes/events";
+import { aiRouter } from "./routes/ai";
+import { notificationsRouter } from "./routes/notifications";
 import { authenticateJWT } from "./middleware/auth";
 
 const app = express();
@@ -84,3 +86,4 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 export { app };
+

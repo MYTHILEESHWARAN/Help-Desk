@@ -17,6 +17,12 @@ import {
 import { Category, EventType, Priority, Status } from "@prisma/client";
 import { createHttpError } from "../middleware/errorHandler";
 import { emitTicketEvent } from "./sse";
+// -- Notification helper -------------------------------------------------------
+async function createNotification(userId: string, ticketId: string, message: string) {
+  try {
+    await prisma.notification.create({ data: { user_id: userId, ticket_id: ticketId, message } });
+  } catch { /* notifications are best-effort � never block the main operation */ }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -338,6 +344,8 @@ export async function changeStatus(params: {
 
   const formatted = formatTicket(updated);
   emitTicketEvent("ticket_updated", formatted);
+  // Notify the ticket reporter about status change
+  await createNotification(formatted.reported_by.id, ticketId, `Your ticket "${formatted.title}" status changed to ${toApiStatus(targetStatus)}.`);
   return formatted;
 }
 
@@ -384,6 +392,10 @@ export async function assignTicket(params: {
 
   const formatted = formatTicket(updated);
   emitTicketEvent("ticket_assigned", formatted);
+  // Notify the ticket reporter about assignment
+  if (assigneeId) {
+    await createNotification(formatted.reported_by.id, ticketId, `Your ticket "${formatted.title}" has been assigned to a technician.`);
+  }
   return formatted;
 }
 
@@ -422,3 +434,5 @@ export async function addComment(params: {
     created_at: comment.created_at.toISOString(),
   };
 }
+
+
