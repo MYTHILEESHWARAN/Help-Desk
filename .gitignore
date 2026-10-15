@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Environment variables (NEVER commit .env)
+.env
+.env.local
+.env.*.local
+
+# Build output
+dist/
+build/
+.turbo/
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pino-*
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Editor
+.vscode/settings.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+.dockerignore
+
+# Prisma
+backend/node_modules/
+frontend/node_modules/
+
+# Performance results (generated, not tracked)
+perf-results.json

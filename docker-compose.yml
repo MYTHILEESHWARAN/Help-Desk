@@ -1,0 +1,67 @@
+version: "3.9"
+
+services:
+  # ── PostgreSQL 16 ─────────────────────────────────────────────────────────
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: helpdesk
+      POSTGRES_PASSWORD: helpdesk_password
+      POSTGRES_DB: helpdesk
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/prisma/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U helpdesk -d helpdesk"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    ports:
+      - "5432:5432"
+
+  # ── Backend (Node 20 / Express) ────────────────────────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://helpdesk:helpdesk_password@db:5432/helpdesk?schema=public}
+      DIRECT_URL: ${DIRECT_URL:-postgresql://helpdesk:helpdesk_password@db:5432/helpdesk?schema=public}
+      READONLY_DATABASE_URL: ${READONLY_DATABASE_URL:-postgresql://helpdesk_readonly:readonly_password@db:5432/helpdesk?schema=public}
+      JWT_SECRET: ${JWT_SECRET:-change_me_in_production_at_least_32_chars}
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${PORT:-4000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      SEED_PASSWORD: ${SEED_PASSWORD:-Demo1234!}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      AI_MODEL: ${AI_MODEL:-claude-3-5-haiku-20241022}
+      EMBEDDINGS_PROVIDER: ${EMBEDDINGS_PROVIDER:-none}
+      SLA_URGENT_HOURS: ${SLA_URGENT_HOURS:-4}
+      SLA_HIGH_HOURS: ${SLA_HIGH_HOURS:-8}
+      SLA_MEDIUM_HOURS: ${SLA_MEDIUM_HOURS:-24}
+      SLA_LOW_HOURS: ${SLA_LOW_HOURS:-72}
+    ports:
+      - "4000:4000"
+
+  # ── Frontend (Vite / React) ────────────────────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      VITE_API_URL: ${VITE_API_URL:-http://localhost:4000}
+    ports:
+      - "5173:5173"
+
+volumes:
+  pgdata:
+    driver: local

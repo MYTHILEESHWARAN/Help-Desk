@@ -1,0 +1,148 @@
+// HelpDesk 360 — Prisma Schema
+// PostgreSQL 16 with pg_trgm extension (pgvector optional)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ── Enums ─────────────────────────────────────────────────────────────────────
+
+enum Category {
+  hardware
+  network
+  software
+  account_access // stored as "account_access", mapped to "account-access" in app layer
+}
+
+enum Priority {
+  low
+  medium
+  high
+  urgent
+}
+
+enum Status {
+  open
+  in_progress // stored as "in_progress", displayed as "in-progress"
+  resolved
+  closed
+}
+
+enum Role {
+  employee
+  technician
+}
+
+enum EventType {
+  created
+  status_change
+  assignment
+}
+
+// ── Models ────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  username      String   @unique
+  full_name     String
+  email         String   @unique
+  password_hash String
+  role          Role
+  created_at    DateTime @default(now()) @db.Timestamptz
+
+  // Relations
+  reported_tickets  Ticket[]        @relation("Reporter")
+  assigned_tickets  Ticket[]        @relation("Assignee")
+  history_entries   StatusHistory[] @relation("ChangedBy")
+  comments          Comment[]
+  notifications     Notification[]
+
+  @@map("users")
+}
+
+model Ticket {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title                 String    @db.VarChar(120)
+  description           String    @db.VarChar(5000)
+  category              Category
+  priority              Priority
+  status                Status    @default(open)
+  reported_by           String    @db.Uuid
+  assigned_to           String?   @db.Uuid
+  idempotency_key       String?   @unique
+  summary               String?   // AI-generated
+  ai_suggested_category Category?
+  ai_suggested_priority Priority?
+  // embedding column added via raw migration when EMBEDDINGS_PROVIDER != none
+  created_at            DateTime  @default(now()) @db.Timestamptz
+  updated_at            DateTime  @default(now()) @updatedAt @db.Timestamptz
+
+  // Relations
+  reporter    User            @relation("Reporter", fields: [reported_by], references: [id])
+  assignee    User?           @relation("Assignee", fields: [assigned_to], references: [id])
+  history     StatusHistory[]
+  comments    Comment[]
+  notifications Notification[]
+
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([reported_by])
+  @@index([assigned_to])
+  @@index([created_at])
+  @@map("tickets")
+}
+
+model StatusHistory {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id   String    @db.Uuid
+  event_type  EventType
+  from_status Status?
+  to_status   Status
+  changed_by  String    @db.Uuid
+  note        String?
+  changed_at  DateTime  @default(now()) @db.Timestamptz
+
+  ticket  Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  actor   User   @relation("ChangedBy", fields: [changed_by], references: [id])
+
+  @@index([ticket_id])
+  @@index([changed_at])
+  @@map("status_history")
+}
+
+model Comment {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ticket_id  String   @db.Uuid
+  author_id  String   @db.Uuid
+  body       String   @db.VarChar(2000)
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  ticket Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [author_id], references: [id])
+
+  @@index([ticket_id])
+  @@map("comments")
+}
+
+model Notification {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String   @db.Uuid
+  ticket_id  String   @db.Uuid
+  message    String
+  read       Boolean  @default(false)
+  created_at DateTime @default(now()) @db.Timestamptz
+
+  user   User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  ticket Ticket @relation(fields: [ticket_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@index([read])
+  @@map("notifications")
+}
