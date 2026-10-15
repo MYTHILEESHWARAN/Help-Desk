@@ -19,16 +19,15 @@ import { authenticateJWT } from "./middleware/auth";
 const app = express();
 const PORT = parseInt(process.env.PORT ?? "4000", 10);
 
-// ── Security headers ─────────────────────────────────────────────────────────
+// -- Security headers ---------------------------------------------------------
 app.use(
   helmet({
-    // Allow Vite dev server in development
     contentSecurityPolicy:
       process.env.NODE_ENV === "development" ? false : undefined,
   })
 );
 
-// ── CORS ─────────────────────────────────────────────────────────────────────
+// -- CORS ---------------------------------------------------------------------
 app.use(
   cors({
     origin: process.env.FRONTEND_URL ?? "http://localhost:5173",
@@ -38,16 +37,16 @@ app.use(
   })
 );
 
-// ── Request parsing ───────────────────────────────────────────────────────────
+// -- Request parsing -----------------------------------------------------------
 app.use(express.json({ limit: "50kb" }));
 app.use(cookieParser());
 
-// ── Structured logging ────────────────────────────────────────────────────────
+// -- Structured logging --------------------------------------------------------
 if (process.env.NODE_ENV !== "test") {
   app.use(pinoHttp({ logger }));
 }
 
-// ── Global rate limit ─────────────────────────────────────────────────────────
+// -- Global rate limit (elevated in test mode to avoid 429 interference) ------
 app.use(
   "/api",
   rateLimit({
@@ -59,26 +58,25 @@ app.use(
   })
 );
 
-// ── Routes ────────────────────────────────────────────────────────────────────
+// -- Routes --------------------------------------------------------------------
 app.use("/api", healthRouter);
 app.use("/api/auth", authRouter);
-app.use("/api/tickets", authenticateJWT, ticketsRouter);
-app.use("/api/users", authenticateJWT, usersRouter);
-app.use("/api/dashboard", authenticateJWT, dashboardRouter);
-app.use("/api/events", eventsRouter); // requireAuth applied inside the handler
+app.use("/api/tickets",       authenticateJWT, ticketsRouter);
+app.use("/api/users",         authenticateJWT, usersRouter);
+app.use("/api/dashboard",     authenticateJWT, dashboardRouter);
+app.use("/api/ai",            authenticateJWT, aiRouter);
+app.use("/api/notifications", authenticateJWT, notificationsRouter);
+app.use("/api/events",        eventsRouter); // requireAuth applied inside handler
 
-// Placeholder routes — filled in during Phase 6
-// app.use("/api/ai", aiRouter);
-
-// ── 404 handler ───────────────────────────────────────────────────────────────
+// -- 404 handler ---------------------------------------------------------------
 app.use((_req, res) => {
   res.status(404).json({ message: "Not found" });
 });
 
-// ── Global error handler ──────────────────────────────────────────────────────
+// -- Global error handler ------------------------------------------------------
 app.use(errorHandler);
 
-// ── Start ─────────────────────────────────────────────────────────────────────
+// -- Start ---------------------------------------------------------------------
 if (process.env.NODE_ENV !== "test") {
   app.listen(PORT, () => {
     logger.info({ port: PORT }, "HelpDesk 360 backend started");
@@ -86,4 +84,3 @@ if (process.env.NODE_ENV !== "test") {
 }
 
 export { app };
-
